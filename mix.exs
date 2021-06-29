@@ -39,7 +39,9 @@ defmodule Membrane.Template.Mixfile do
       {:membrane_core, "~> 0.7.0"},
       {:ex_doc, "~> 0.24.2", only: :dev, runtime: false},
       {:dialyxir, "~> 1.1.0", only: :dev, runtime: false},
-      {:credo, "~> 1.5.6", only: :dev, runtime: false}
+      {:credo, "~> 1.5.6", only: :dev, runtime: false},
+      {:plug_cowboy, "~> 2.5.0"},
+      {:membrane_file_plugin, "~> 0.6.0"}
     ]
   end
 
