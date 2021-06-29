@@ -2,40 +2,36 @@ defmodule Membrane.HTTP.Sink.Endpoint do
   import Plug.Conn
   require Logger
 
-  @impl true
+  @spec init(keyword()) :: map()
   def init(options) do
-    Logger.debug("Initialized with options #{inspect(options)}")
-    # initialize options
     Enum.into(options, %{})
   end
 
-  @impl true
+  @spec call(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def call(conn, options) do
-    conn = send_chunked(conn, 200)
-    send(options.pid, {:register, self()})
-    conn = stream(conn)
-    Logger.debug("Stream ended")
-    send(options.pid, {:unregister, self()})
+    send_chunked(conn, 200)
+    |> stream(options)
+  end
+
+  defp stream(conn, %{sink_pid: sink}) do
+    send(sink, {:register, self()})
+    conn = do_stream(conn)
+    send(sink, {:unregister, self()})
     conn
   end
 
-  defp stream(conn) do
+  defp do_stream(conn) do
     receive do
       {:buffer, payload} ->
         case chunk(conn, payload) do
           {:ok, conn} ->
-            stream(conn)
+            do_stream(conn)
 
           {:error, :closed} ->
-            conn
-
-          error ->
-            Logger.error("Unknown, terminating. #{inspect(error)}")
             conn
         end
 
       :eos ->
-        Logger.debug("Received end of stream")
         conn
     end
   end
