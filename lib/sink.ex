@@ -1,6 +1,6 @@
 defmodule Membrane.HTTP.Sink do
   @moduledoc """
-  Sink working in Publisher - Subscriber model
+  Sink working in Publisher - Subscriber model. To find keys related to sinks, take a look at `outputs/0` and `outputs/1`
   """
   use Membrane.Sink
   require Membrane.Logger
@@ -10,26 +10,14 @@ defmodule Membrane.HTTP.Sink do
     caps: :any,
     demand_unit: :buffers
 
-  def_options port: [
-                spec: 0..65_535,
-                default: 4000,
-                description: """
-                Port number on which the Endpoint will be published
-                """
-              ],
-              cowboy_options: [
-                spec: keyword(),
-                default: [],
-                description: """
-                Options for Plug Cowboy Adapter
-                """
-              ]
+  @registry Membrane.HTTP.Registry
 
   @impl true
-  def handle_init(%{port: port, cowboy_options: opts}) do
-    options = Keyword.merge([port: port], opts)
-    {:ok, _} = Plug.Cowboy.http(Membrane.HTTP.Sink.Endpoint, [sink_pid: self()], options)
-    {:ok, %{connections: MapSet.new()}}
+  def handle_init(_opts) do
+    name = generate_name()
+    Registry.register(@registry, {:stream, name}, :ok)
+
+    {:ok, %{registered_as: name}}
   end
 
   @impl true
@@ -39,35 +27,49 @@ defmodule Membrane.HTTP.Sink do
 
   @impl true
   def handle_write(pad, buffer, _ctx, state) do
-    state.connections
-    |> Enum.each(&send(&1, {:buffer, buffer.payload}))
+    broadcast({:buffer, buffer.payload}, state)
+    Process.sleep(24)
 
     {{:ok, demand: pad}, state}
   end
 
   @impl true
-  def handle_other({:register, pid}, _ctx, state) do
-    Membrane.Logger.debug("Registering connection from #{inspect(pid)}")
-    {:ok, state |> Map.update!(:connections, &MapSet.put(&1, pid))}
-  end
-
-  def handle_other({:unregister, pid}, _ctx, state) do
-    Membrane.Logger.debug("Unregistering connection from #{inspect(pid)}")
-    {:ok, state |> Map.update!(:connections, &MapSet.delete(&1, pid))}
-  end
-
-  def handle_other(message, _ctx, state) do
-    Membrane.Logger.error("Received unknown message #{inspect(message)}")
-    {:ok, state}
-  end
-
-  @impl true
   def handle_end_of_stream(:input, _ctx, state) do
-    state.connections
-    |> Enum.each(fn pid -> send(pid, :eos) end)
-
-    Plug.Cowboy.shutdown(Membrane.HTTP.Sink.Endpoint)
+    broadcast(:eos, state)
 
     {:ok, state}
+  end
+
+  @spec broadcast(any(), map()) :: :ok
+  defp broadcast(message, state) do
+    Registry.dispatch(@registry, {:client, state.registered_as}, fn entries ->
+      for {pid, _} <- entries, do: send(pid, message)
+    end)
+
+    :ok
+  end
+
+  defp generate_name() do
+    :crypto.strong_rand_bytes(8) |> :base64.encode()
+  end
+
+  @doc """
+  Returns a list of endpoint keys pointing to valid streams
+  """
+  @spec outputs() :: [String.t()]
+  def outputs() do
+    Registry.select(Membrane.HTTP.Registry, [{{:"$1", :_, :_}, [], [:"$1"]}])
+    |> Enum.filter(&(Bunch.key(&1) == :stream))
+    |> Enum.map(&Bunch.value/1)
+  end
+
+  @doc """
+  Returns an endpoint key pointing to the sink running on the given PID
+  """
+  @spec output(pid()) :: String.t()
+  def output(pid) do
+    Registry.keys(Membrane.HTTP.Registry, pid)
+    |> Enum.map(&Bunch.value/1)
+    |> hd()
   end
 end

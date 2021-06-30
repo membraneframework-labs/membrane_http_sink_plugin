@@ -4,19 +4,25 @@ defmodule Membrane.HTTP.Sink.Endpoint do
 
   @spec init(keyword()) :: map()
   def init(options) do
-    Enum.into(options, %{})
+    options
   end
 
   @spec call(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def call(conn, options) do
-    send_chunked(conn, 200)
-    |> stream(options)
+  def call(conn, _options) do
+    [stream_id] = conn.path_info
+
+    if stream_exists(stream_id) do
+      send_chunked(conn, 200)
+      |> stream(stream_id)
+    else
+      send_resp(conn, 404, "Stream doesn't exist")
+    end
   end
 
-  defp stream(conn, %{sink_pid: sink}) do
-    send(sink, {:register, self()})
+  defp stream(conn, stream_id) do
+    register(stream_id)
     conn = do_stream(conn)
-    send(sink, {:unregister, self()})
+    unregister()
     conn
   end
 
@@ -34,5 +40,20 @@ defmodule Membrane.HTTP.Sink.Endpoint do
       :eos ->
         conn
     end
+  end
+
+  defp stream_exists(name) do
+    Registry.lookup(Membrane.HTTP.Registry, {:stream, name})
+    |> Enum.any?()
+  end
+
+  defp register(name) do
+    Logger.debug("Registering #{inspect(self())} to stream `#{name}`")
+    Registry.register(Membrane.HTTP.Registry, {:client, name}, [])
+  end
+
+  defp unregister() do
+    Registry.keys(Membrane.HTTP.Registry, self())
+    |> Enum.map(&Registry.unregister(Membrane.HTTP.Registry, &1))
   end
 end

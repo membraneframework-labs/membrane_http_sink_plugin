@@ -27,6 +27,7 @@ defmodule Membrane.Template.Mixfile do
 
   def application do
     [
+      mod: {Membrane.HTTP.Sink.Application, []},
       extra_applications: []
     ]
   end
@@ -37,11 +38,12 @@ defmodule Membrane.Template.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 0.7.0"},
+      {:membrane_file_plugin, "~> 0.6.0"},
+      {:plug_cowboy, "~> 2.5.0"},
+      {:bunch, "~> 1.3.0"},
       {:ex_doc, "~> 0.24.2", only: :dev, runtime: false},
       {:dialyxir, "~> 1.1.0", only: :dev, runtime: false},
-      {:credo, "~> 1.5.6", only: :dev, runtime: false},
-      {:plug_cowboy, "~> 2.5.0"},
-      {:membrane_file_plugin, "~> 0.6.0"}
+      {:credo, "~> 1.5.6", only: :dev, runtime: false}
     ]
   end
 
