@@ -50,7 +50,13 @@ defmodule Membrane.HTTP.Sink do
   end
 
   defp generate_name() do
-    :crypto.strong_rand_bytes(8) |> :base64.encode()
+    key = for(_i <- 1..10, do: :crypto.rand_uniform(?a, ?z)) |> :erlang.list_to_binary()
+
+    if {:stream, key} in outputs() do
+      generate_name()
+    else
+      key
+    end
   end
 
   @doc """
