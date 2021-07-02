@@ -38,7 +38,6 @@ defmodule Membrane.Template.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 0.7.0"},
-      {:membrane_file_plugin, "~> 0.6.0"},
       {:plug_cowboy, "~> 2.5.0"},
       {:bunch, "~> 1.3.0"},
       {:ex_doc, "~> 0.24.2", only: :dev, runtime: false},

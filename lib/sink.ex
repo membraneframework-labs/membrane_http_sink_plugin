@@ -50,7 +50,7 @@ defmodule Membrane.HTTP.Sink do
   end
 
   defp generate_name() do
-    key = for(_i <- 1..10, do: :crypto.rand_uniform(?a, ?z)) |> :erlang.list_to_binary()
+    key = for(_i <- 1..10, do: :rand.uniform(?z - ?a) + ?a) |> :erlang.list_to_binary()
 
     if {:stream, key} in outputs() do
       generate_name()
@@ -64,7 +64,7 @@ defmodule Membrane.HTTP.Sink do
   """
   @spec outputs() :: [String.t()]
   def outputs() do
-    Registry.select(Membrane.HTTP.Registry, [{{:"$1", :_, :_}, [], [:"$1"]}])
+    Registry.select(@registry, [{{:"$1", :_, :_}, [], [:"$1"]}])
     |> Enum.filter(&(Bunch.key(&1) == :stream))
     |> Enum.map(&Bunch.value/1)
   end
@@ -74,7 +74,7 @@ defmodule Membrane.HTTP.Sink do
   """
   @spec output(pid()) :: String.t()
   def output(pid) do
-    Registry.keys(Membrane.HTTP.Registry, pid)
+    Registry.keys(@registry, pid)
     |> Enum.map(&Bunch.value/1)
     |> hd()
   end
