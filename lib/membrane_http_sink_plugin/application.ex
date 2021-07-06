@@ -6,11 +6,7 @@ defmodule Membrane.HTTP.Sink.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {Registry, keys: :duplicate, name: Membrane.HTTP.Registry},
-      {Plug.Cowboy,
-       scheme: :http,
-       plug: Membrane.HTTP.Sink.Endpoint,
-       options: [port: 4001, protocol_options: [idle_timeout: :infinity]]}
+      {Registry, keys: :duplicate, name: Membrane.HTTP.Registry}
     ]
 
     opts = [strategy: :one_for_one, name: Membrane.HTTP.Sink.Supervisor]
