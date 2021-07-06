@@ -27,7 +27,7 @@ defmodule Membrane.HTTP.Sink do
 
   @impl true
   def handle_init(%__MODULE__{port: port, protocol_options: options}) do
-    {:ok, pid} = Plug.Cowboy.http(@plug, port: port, protocol_options: options)
+    {:ok, pid} = Plug.Cowboy.http(@plug, [], port: port, protocol_options: options)
     Process.link(pid)
     {:ok, %{}}
   end
@@ -63,10 +63,18 @@ defmodule Membrane.HTTP.Sink do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:input, name) = ref, _ctx, state) do
-    Registry.register(@registry, {:stream, name}, [])
-    Membrane.Logger.debug("Connected pad #{inspect(ref)}")
-    {:ok, state}
+  def handle_pad_added(Pad.ref(:input, name) = ref, _ctx, state) when is_binary(name) do
+    if String.to_charlist(name) |> Enum.all?(&URI.char_unreserved?/1) do
+      Registry.register(@registry, {:stream, name}, [])
+      Membrane.Logger.debug("Connected pad #{inspect(ref)}")
+      {:ok, state}
+    else
+      raise("Name `#{name}` contains HTTP reserved characters and therefore cannot be used.")
+    end
+  end
+
+  def handle_pad_added(Pad.ref(:input, name), _ctx, state) do
+    raise("`#{inspect(name)}` is not a binary. It wouldn't make a correct URL")
   end
 
   @impl true
