@@ -63,54 +63,39 @@ defmodule Membrane.HTTP.Sink do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:input, name) = ref, _ctx, state) when is_binary(name) do
-    if String.to_charlist(name) |> Enum.all?(&URI.char_unreserved?/1) do
-      Registry.register(@registry, {:stream, name}, [])
-      Membrane.Logger.debug("Connected pad #{inspect(ref)}")
-      {:ok, state}
-    else
+  def handle_pad_added(Pad.ref(:input, name) = ref, ctx, state) when is_binary(name) do
+    if String.to_charlist(name) |> Enum.any?(&URI.char_reserved?/1) do
       raise("Name `#{name}` contains HTTP reserved characters and therefore cannot be used.")
+    else
+      Registry.register(@registry, :stream, name)
+      Membrane.Logger.debug("Connected pad #{inspect(ref)}")
+
+      if ctx.playback_state == :playing do
+        {{:ok, demand: ref}, state}
+      else
+        {:ok, state}
+      end
     end
   end
 
-  def handle_pad_added(Pad.ref(:input, name), _ctx, state) do
+  def handle_pad_added(Pad.ref(:input, name), _ctx, _state) do
     raise("`#{inspect(name)}` is not a binary. It wouldn't make a correct URL")
   end
 
   @impl true
   def handle_pad_removed(Pad.ref(:input, name) = ref, _ctx, state) do
     dispatch(:eos, name)
-    :ok = Registry.unregister(@registry, {:stream, name})
+    :ok = Registry.unregister_match(@registry, :stream, name)
     Membrane.Logger.debug("Disconnected pad #{inspect(ref)}")
     {:ok, state}
   end
 
   @spec dispatch(any(), map()) :: :ok
   defp dispatch(message, stream) do
-    Registry.dispatch(@registry, {:client, stream}, fn entries ->
-      for {pid, _} <- entries, do: send(pid, message)
-    end)
+    Registry.match(@registry, :client, stream)
+    |> Enum.map(&Bunch.key/1)
+    |> Enum.each(&send(&1, message))
 
     :ok
-  end
-
-  @doc """
-  Returns a list of endpoint keys pointing to valid streams
-  """
-  @spec outputs() :: [String.t()]
-  def outputs() do
-    Registry.select(@registry, [{{:"$1", :_, :_}, [], [:"$1"]}])
-    |> Enum.filter(&(Bunch.key(&1) == :stream))
-    |> Enum.map(&Bunch.value/1)
-  end
-
-  @doc """
-  Returns an endpoint key pointing to the sink running on the given PID
-  """
-  @spec output(pid()) :: String.t()
-  def output(pid) do
-    Registry.keys(@registry, pid)
-    |> Enum.map(&Bunch.value/1)
-    |> hd()
   end
 end

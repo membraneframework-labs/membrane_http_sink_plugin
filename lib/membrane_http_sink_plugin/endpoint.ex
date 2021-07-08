@@ -43,17 +43,16 @@ defmodule Membrane.HTTP.Sink.Endpoint do
   end
 
   defp stream_exists(name) do
-    Registry.lookup(Membrane.HTTP.Registry, {:stream, name})
+    Registry.match(Membrane.HTTP.Registry, :stream, name)
     |> Enum.any?()
   end
 
   defp register(name) do
     Logger.debug("Registering #{inspect(self())} to stream `#{name}`")
-    Registry.register(Membrane.HTTP.Registry, {:client, name}, [])
+    Registry.register(Membrane.HTTP.Registry, :client, name)
   end
 
   defp unregister() do
-    Registry.keys(Membrane.HTTP.Registry, self())
-    |> Enum.map(&Registry.unregister(Membrane.HTTP.Registry, &1))
+    Registry.unregister(Membrane.HTTP.Registry, :client)
   end
 end
