@@ -69,10 +69,10 @@ defmodule Membrane.HTTP.Sink.Test do
     {:ok, conn} = Mint.HTTP.connect(:http, "localhost", 5000)
     {:ok, conn, _} = Mint.HTTP.request(conn, "GET", "/t", [], nil)
 
-    Process.sleep(100)
+    Process.sleep(500)
     assert Registry.match(@registry, :client, @stream_key) |> Enum.any?()
     Mint.HTTP.close(conn)
-    Process.sleep(100)
+    Process.sleep(500)
     refute Registry.match(@registry, :client, @stream_key) |> Enum.any?()
   end
 end
